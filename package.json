@@ -1,0 +1,36 @@
+{
+  "name": "jonika",
+  "version": "0.0.1",
+  "description": "Experiments in sound design",
+  "private": true,
+  "scripts": {
+    "dev": "webpack-dev-server"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/joncys/jonika.git"
+  },
+  "author": "Simonas Jončys (http://joncys.lt/)",
+  "license": "Unlicense",
+  "bugs": {
+    "url": "https://github.com/joncys/jonika/issues"
+  },
+  "homepage": "https://github.com/joncys/jonika#readme",
+  "devDependencies": {
+    "@babel/core": "^7.7.4",
+    "@babel/preset-env": "^7.7.4",
+    "@babel/preset-typescript": "^7.7.4",
+    "@types/styletron-engine-atomic": "^1.1.0",
+    "@types/webmidi": "^2.0.3",
+    "babel-loader": "^8.0.6",
+    "fork-ts-checker-webpack-plugin": "^3.1.1",
+    "html-webpack-plugin": "^3.2.0",
+    "nanohtml": "^1.9.0",
+    "nanomorph": "^5.4.0",
+    "styletron-engine-atomic": "^1.4.4",
+    "typescript": "^3.7.2",
+    "webpack": "^4.41.2",
+    "webpack-cli": "^3.3.10",
+    "webpack-dev-server": "^3.9.0"
+  }
+}
