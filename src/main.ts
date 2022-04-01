@@ -30,9 +30,61 @@ const start = html`
     </button>
   </div>
 `
+window.addEventListener('mouseup', (event) => {
+  console.log('stop')
+  stopAll()
+  rerender()
+})
 app.appendChild(start)
-start.querySelector('button').addEventListener('click', event => {
+start.querySelector('button').addEventListener('click', (event) => {
   ctx = new AudioCtx()
+  console.log('wow')
+})
+
+const charToNoteOffset = {
+  a: 0,
+  w: 1,
+  s: 2,
+  e: 3,
+  d: 4,
+  f: 5,
+  t: 6,
+  g: 7,
+  y: 8,
+  h: 9,
+  u: 10,
+  j: 11,
+  k: 12,
+  o: 13,
+  l: 14,
+  p: 15
+}
+
+let keyboardOffset = 60
+const keyboardPressed = {}
+window.addEventListener('keydown', (event) => {
+  if (event.key === 'z') keyboardOffset -= 12
+  if (event.key === 'x') keyboardOffset += 12
+
+  const noteOffset = charToNoteOffset[event.key]
+  if (noteOffset === undefined) return
+  if (keyboardPressed[noteOffset]) return
+
+  const midi = {
+    type: 'note_on',
+    note: keyboardOffset + noteOffset,
+    channel: 144,
+    velocity: 100
+  }
+  playNote(midi)
+  keyboardPressed[noteOffset] = midi
+})
+window.addEventListener('keyup', (event) => {
+  const noteOffset = charToNoteOffset[event.key]
+  if (keyboardPressed[noteOffset]) {
+    stopNote(keyboardPressed[noteOffset])
+    keyboardPressed[noteOffset] = undefined
+  }
 })
 
 const piano = generatePianoRoll()
@@ -48,7 +100,7 @@ function onMIDISuccess(midiAccess: WebMidi.MIDIAccess) {
   var inputs = midiAccess.inputs
   var outputs = midiAccess.outputs
 
-  Array.from(midiAccess.inputs.values()).forEach(input => {
+  Array.from(midiAccess.inputs.values()).forEach((input) => {
     input.onmidimessage = getMIDIMessage
   })
 }
@@ -98,27 +150,33 @@ function midiNoteToHz(note: number): number {
 function playNote(midi: ReturnType<typeof parseMidi>) {
   if (ctx) {
     const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
     const hz = midiNoteToHz(midi.note)
     osc.frequency.value = hz
-    osc.connect(ctx.destination)
+    osc.connect(gain)
+    gain.connect(ctx.destination)
     osc.start()
-    PLAYING_NOTES[midi.note] = osc
+    PLAYING_NOTES[midi.note] = {osc, gain}
   }
 }
 
 function stopNote(midi: ReturnType<typeof parseMidi>) {
   if (ctx) {
-    const osc = PLAYING_NOTES[midi.note]
+    const {osc, gain} = PLAYING_NOTES[midi.note]
+    gain.gain.setValueAtTime(gain.gain.value, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.03)
+    osc.stop(ctx.currentTime + 0.04)
     PLAYING_NOTES[midi.note] = undefined
-    osc.stop(ctx.currentTime)
   }
 }
 
 function stopAll() {
   if (ctx) {
-    Object.keys(PLAYING_NOTES).forEach(note => {
-      const osc = PLAYING_NOTES[note]
-      osc.stop(ctx.currentTime)
+    Object.keys(PLAYING_NOTES).forEach((note) => {
+      const {osc, gain} = PLAYING_NOTES[note]
+      gain.gain.setValueAtTime(gain.gain.value, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.03)
+      osc.stop(ctx.currentTime + 0.04)
     })
     PLAYING_NOTES = {}
   }
@@ -222,12 +280,11 @@ function generatePianoRoll() {
                 fontFamily: 'sans-serif',
                 color: PLAYING_NOTES[i] ? '#fff' : '#bbb'
               })}"
-              >C${i / 12 - 1}</span
+              >C${i / 12 - 2}</span
             >
           `
         )
       }
-      container.appendChild(key)
     } else {
       key = html`
         <div
@@ -243,8 +300,18 @@ function generatePianoRoll() {
           })}"
         ></div>
       `
-      container.appendChild(key)
     }
+    key.addEventListener('mousedown', (event) => {
+      console.log(event)
+      playNote({
+        type: 'note_on',
+        note: 44,
+        velocity: 100,
+        channel: 144
+      })
+      rerender()
+    })
+    container.appendChild(key)
   }
 
   return container
