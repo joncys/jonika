@@ -3,7 +3,80 @@ import html from 'nanohtml'
 
 import {css} from './html'
 
-const app = document.querySelector('.app--inner')
+import * as landing from './pages/landing.page'
+import * as create from './pages/create.page'
+import * as page_404 from './pages/404.page'
+
+import {createBrowserHistory} from 'history'
+
+const app = document.querySelector('.app--inner') as HTMLDivElement
+
+const state: {audioContext: AudioContext | null; inputs: any[]} = {
+  audioContext: null,
+  inputs: []
+}
+
+export type State = typeof state
+export type Action = landing.Actions
+export type UpdateFunction = (state: State, action: Action) => State
+export type SignalFunction = (
+  actionAndEffect: readonly [Action, Function]
+) => () => void
+export type ViewFunction = (signal: SignalFunction, state: State) => HTMLElement
+
+const update: UpdateFunction = (state: State, action: Action) => {
+  switch (action.type) {
+    case 'start_context': {
+      const ctx = new window.AudioContext()
+      return {
+        ...state,
+        audioContext: ctx
+      }
+    }
+    default:
+      return state
+  }
+}
+
+const view: ViewFunction = (signal, state) => {
+  const history = createBrowserHistory()
+  console.log(history.location.pathname, history.location)
+  switch (history.location.pathname) {
+    case '/':
+      return landing.view(signal, state)
+    case '/create':
+      return create.view(signal, state)
+    default:
+      return page_404.view(signal, state)
+  }
+}
+
+const mount = (
+  state: State,
+  update: UpdateFunction,
+  view: ViewFunction,
+  element: HTMLElement
+) => {
+  let currentState = state
+  const signal: SignalFunction = (actionAndEffect) => {
+    return () => {
+      const [action, effect] = actionAndEffect
+      currentState = update(state, action)
+      console.log('updated', currentState)
+      morph(html, view(signal, currentState))
+
+      if (typeof effect === 'function') {
+        effect()
+        morph(html, view(signal, currentState))
+      }
+    }
+  }
+  let html = view(signal, currentState)
+  element.appendChild(html)
+}
+
+mount(state, update, view, app)
+
 let PLAYING_NOTES = {}
 
 const AudioCtx = window.AudioContext
@@ -35,7 +108,7 @@ window.addEventListener('mouseup', (event) => {
   stopAll()
   rerender()
 })
-app.appendChild(start)
+// app.appendChild(start)
 start.querySelector('button').addEventListener('click', (event) => {
   ctx = new AudioCtx()
   console.log('wow')
@@ -88,7 +161,7 @@ window.addEventListener('keyup', (event) => {
 })
 
 const piano = generatePianoRoll()
-app.appendChild(piano)
+// app.appendChild(piano)
 
 function rerender() {
   morph(piano, generatePianoRoll())
