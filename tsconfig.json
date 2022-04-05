@@ -1,3 +1,15 @@
 {
-  "include": ["src/**/*"]
+  "compilerOptions": {
+    "target": "es5",
+    "module": "CommonJS",
+    "lib": ["es5", "dom"],
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "skipDefaultLibCheck": true,
+    "baseUrl": "./src",
+    "outDir": "./dist",
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["./src"],
+  "exclude": ["node_modules"]
 }

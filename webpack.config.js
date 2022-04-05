@@ -1,41 +1,36 @@
-const path = require('path')
 const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
+const path = require('path')
 
 module.exports = {
+  context: __dirname,
   mode: 'development',
   entry: './src/main.ts',
-  devtool: 'inline-source-map',
-  devServer: {
-    contentBase: './dist',
-    historyApiFallback: true
-  },
   resolve: {
-    extensions: ['.js', '.jsx', '.ts', '.tsx']
+    extensions: ['.ts', '.tsx', '.js']
   },
   module: {
     rules: [
       {
         test: /\.tsx?$/,
+        loader: 'ts-loader',
         exclude: /node_modules/,
-        loader: 'babel-loader',
         options: {
-          babelrc: false,
-          presets: ['@babel/preset-env', '@babel/preset-typescript']
+          transpileOnly: true
         }
       }
     ]
   },
   plugins: [
+    new ForkTsCheckerWebpackPlugin(),
     new HtmlWebpackPlugin({
-      title: 'Jonika',
-      favicon: 'src/favicon.ico',
-      template: 'src/index.html'
-    }),
-    new ForkTsCheckerWebpackPlugin()
+      title: 'Development',
+      template: path.join(__dirname, './src/index.html')
+    })
   ],
   output: {
-    filename: 'dist.js',
-    path: path.resolve(__dirname, 'dist')
+    filename: '[name].bundle.js',
+    path: path.resolve(__dirname, 'dist'),
+    clean: true
   }
 }
