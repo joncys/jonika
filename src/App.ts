@@ -1,26 +1,52 @@
 import {css} from './html'
 import html from 'nanohtml'
-import {Component} from 'runtime'
+import {Component, mapEffect} from './runtime'
+import {Create, State as CreateState, Message as CreateMessage} from './Create'
 
 type Page = 'index' | 'create'
 type State = {
   page: Page
+  create: CreateState
 }
 
 const messages = {
+  // todo: any
+  createMessage(data: any) {
+    return {type: 'create_message', data} as const
+  },
   changePage(newPage: Page) {
     return {type: 'change_page', newPage} as const
   }
 }
 
-type Message = ReturnType<typeof messages[keyof typeof messages]>
+type Message =
+  | ReturnType<typeof messages[keyof typeof messages]>
+  | CreateMessage
+
+const [createState, createEffect] = Create.init
+// todo: any
+const init: [State, any] = [
+  {
+    page: 'index',
+    create: createState
+  },
+  mapEffect(createEffect, messages.createMessage)
+]
 
 export const App: Component<State, Message> = {
-  init: [{page: 'index'}],
+  init,
   update(message, state) {
     switch (message.type) {
       case 'change_page':
         return [{...state, page: message.newPage}]
+      case 'create_message': {
+        const [newCreateState, createEffect] = Create.update(
+          message.data,
+          state.create
+        )
+        const newState = {...state, create: newCreateState}
+        return [newState, mapEffect(createEffect, messages.createMessage)]
+      }
       default:
         return [state]
     }
@@ -30,7 +56,7 @@ export const App: Component<State, Message> = {
       case 'index':
         return landing(dispatch)
       case 'create':
-        return html`<div>Create mode</div>`
+        return Create.view(state.create, dispatch)
       default:
         return not_found()
     }

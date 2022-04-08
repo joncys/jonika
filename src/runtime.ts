@@ -1,15 +1,38 @@
 import morph from 'nanomorph'
 
+export type BaseState = object
 export type BaseMessage = {type: string}
+export type BaseDispatch = (m: BaseMessage) => void
+export type BaseEffect = (d: BaseDispatch) => void
+
 export type Component<
-  State extends object,
+  State extends BaseState,
   Message extends BaseMessage,
-  Dispatch extends (m: Message) => void = (m: Message) => void,
-  Effect extends (d: Dispatch) => void = (d: Dispatch) => void
+  Dispatch extends BaseDispatch = (m: Message) => void,
+  Effect extends BaseEffect = (d: Dispatch) => void
 > = {
   init: [State, Effect?]
   update: (m: Message, s: State) => [State, Effect?]
   view: (s: State, d: Dispatch) => HTMLElement
+}
+
+export const mapEffect = <
+  Effect extends BaseEffect,
+  Message extends BaseMessage
+>(
+  effect: Effect,
+  callback: (m: Message) => Message
+) => {
+  if (!effect) {
+    return effect
+  }
+
+  return function _mapEffect(dispatch) {
+    function intercept(message) {
+      dispatch(callback(message))
+    }
+    return effect(intercept)
+  }
 }
 
 // This is nicked from https://github.com/andrejewski/raj
