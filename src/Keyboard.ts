@@ -2,6 +2,8 @@ import {css} from './html'
 import html from 'nanohtml'
 import {Component} from './runtime'
 
+import {createKeyListener} from './key-listener'
+
 const CharToNoteOffset = {
   a: 0,
   w: 1,
@@ -21,88 +23,79 @@ const CharToNoteOffset = {
   p: 15
 }
 
-let octave = 2
-
 export const actions = {
-  noteOn: (note: number, velocity: number) => {
-    return {type: 'note_on', note, velocity} as const
+  keyDown(key: string) {
+    return {type: 'keyboard_down', key} as const
   },
-  noteOff: (note: number) => {
-    return {type: 'note_off', note} as const
+  keyUp(key: string) {
+    return {type: 'keyboard_up', key} as const
   }
 }
 
 export type Message = ReturnType<typeof actions[keyof typeof actions]>
 
 type Note = {velocity: number}
-export type State = {[key: number]: Note}
+export type State = {octave: number; notes: {[key: number]: Note}}
 
 export const Keyboard: Component<State, Message> = {
   init: [
-    {},
+    {octave: 0, notes: {}},
     (dispatch) => {
-      window.addEventListener('keydown', (event) => {
-        const note = octave * 12 + CharToNoteOffset[event.key]
-        if (!isNaN(note)) {
-          dispatch(actions.noteOn(note, 100))
-        }
-      })
-
-      window.addEventListener('keyup', (event) => {
-        if (event.key === 'z' && octave !== -1) {
-          octave -= 1
-        } else if (event.key === 'x' && octave !== 9) {
-          octave += 1
-        } else {
-          const note = octave * 12 + CharToNoteOffset[event.key]
-          if (!isNaN(note)) {
-            dispatch(actions.noteOff(note))
-          }
-        }
-      })
+      const listener = createKeyListener(window)
+      listener.addKeyDownHandler((event) =>
+        dispatch(actions.keyDown(event.key))
+      )
+      listener.addKeyUpHandler((event) => dispatch(actions.keyUp(event.key)))
     }
   ],
   update(message, state) {
     switch (message.type) {
-      case 'note_on': {
-        if (state[message.note] !== undefined) {
-          return [state]
+      case 'keyboard_down': {
+        if (message.key === 'z') {
+          return [{...state, octave: Math.max(state.octave - 1, 0)}]
         }
-
-        const newState = {
-          ...state,
-          [message.note]: {velocity: message.velocity}
+        if (message.key === 'x') {
+          return [{...state, octave: Math.min(state.octave + 1, 8)}]
         }
-        return [newState]
+        const note = keyToNote(message.key, state.octave)
+        if (!isNaN(note)) {
+          return [{...state, notes: {...state.notes, [note]: {velocity: 100}}}]
+        }
       }
-      case 'note_off': {
-        const newState = JSON.parse(JSON.stringify(state))
-        delete newState[message.note]
-        return [newState]
+      case 'keyboard_up': {
+        const note = keyToNote(message.key, state.octave)
+        if (!isNaN(note)) {
+          const newNotes = {...state.notes}
+          delete newNotes[note]
+          return [{...state, notes: newNotes}]
+        }
       }
+      default:
+        return [state]
     }
   },
   view(state, dispatch) {
-    const startKey = octave * 12
-    const piano = Array(12)
+    const startKey = state.octave * 12 - 7
+    const piano: number[] = Array(43)
       .fill(startKey)
       .map((v, i) => v + i)
     return html`<div
       className="${css({
-        position: 'relative',
         display: 'flex',
-        flexDirection: 'row'
+        flexDirection: 'row',
+        width: '100%',
+        height: '100%'
       })}"
     >
       ${piano.map((note) => {
-        return html`<div
-          className="${css({
-            ...(isWhiteKey(note)
-              ? {
+        return isWhiteKey(note)
+          ? html`<div
+              className="${css(() => {
+                const active = state.notes[note]
+                return {
                   position: 'relative',
-                  width: '50px',
-                  height: '200px',
-                  backgroundColor: state[note] ? 'tomato' : 'white',
+                  flex: '1 1 0px',
+                  backgroundColor: active ? 'tomato' : 'white',
                   borderLeft: '1px solid gray',
                   display: 'flex',
                   flexDirection: 'column',
@@ -110,29 +103,37 @@ export const Keyboard: Component<State, Message> = {
                   boxSizing: 'border-box',
                   paddingLeft: '4px',
                   paddingBottom: '4px',
-                  color: state[note] ? 'white' : 'gray'
+                  color: active ? 'white' : 'gray'
                 }
-              : {
-                  position: 'absolute',
-                  width: '30px',
-                  height: '130px',
-                  backgroundColor: state[note] ? 'tomato' : 'black',
-                  left: `${blackKeyToOffset(note % 12) * 51 + 35}px`,
-                  zIndex: 1
-                })
-          })}"
-        >
-          ${note % 12 === 0 ? `C${Math.floor(note / 12)}` : ''}
-        </div>`
+              })}"
+            >
+              ${!isWhiteKey(note + 1)
+                ? html`<div
+                    className="${css(() => {
+                      const active = state.notes[note + 1]
+                      return {
+                        position: 'absolute',
+                        backgroundColor: active ? 'tomato' : 'black',
+                        top: 0,
+                        left: '70%',
+                        bottom: '33%',
+                        right: '-30%',
+                        zIndex: 1
+                      }
+                    })}"
+                  ></div>`
+                : null}
+              ${note % 12 === 0 ? `C${Math.floor(note / 12)}` : null}
+            </div>`
+          : null
       })}
     </div>`
   }
 }
 
-const isWhiteKey = (note: number) => {
-  return [0, 2, 4, 5, 7, 9, 11].includes(note % 12)
-}
+const keyToNote = (key: string, octave: number) =>
+  octave * 12 + CharToNoteOffset[key]
 
-const blackKeyToOffset = (note: number) => {
-  return {1: 0, 3: 1, 6: 3, 8: 4, 10: 5}[note]
+const isWhiteKey = (note: number) => {
+  return [0, 2, 4, 5, 7, 9, 11].includes((note + 12) % 12)
 }
